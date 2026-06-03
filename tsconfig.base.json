@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "declaration": true,
+    "declarationMap": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noUncheckedSideEffectImports": true,
+    "sourceMap": true,
+    "strict": true,
+    "target": "ES2022"
+  }
+}

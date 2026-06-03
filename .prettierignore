@@ -1,0 +1,6 @@
+dist/
+node_modules/
+coverage/
+pnpm-lock.yaml
+.pre-commit-config.yaml
+SECURITY.md
