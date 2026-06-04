@@ -1,22 +1,54 @@
-# OpenSourceExample
-Example configuration for repositories that will become open-source/source-available.
+# OpenAI Sites (JavaScript/TypeScript)
 
-## Using the `trufflehog` Pre-Commit Hook
-This repository includes a pre-commit hook that uses the `trufflehog` tool to scan your code for secrets before each commit. This helps prevent secrets, such as API keys and passwords, from being accidentally committed to the repository.
+[![CI](https://github.com/openai/sites/actions/workflows/test.yml/badge.svg)](https://github.com/openai/sites/actions/workflows/test.yml)
 
-### Prerequisites
-Install `pre-commit` by running:
+OpenAI Sites provides JavaScript/TypeScript tooling for building and packaging
+sites hosted by OpenAI.
+
+## Packages
+
+- [`@openai/sites-vite-plugin`](packages/sites-vite-plugin): Vite plugin that
+  packages OpenAI Sites deployment metadata and Drizzle migrations.
+
+Packages in this repository are private while their APIs and release process are
+being established.
+
+## Get started
+
+### Supported environments
+
+- Node.js 22.13 or later
+- Vite 8
+
+### Development
+
+This repository is a [pnpm](https://pnpm.io/) workspace.
+
 ```bash
-pip3 install pre-commit
+pnpm install
+pnpm check
 ```
-Before you can use the `trufflehog` pre-commit hook, you need to have the `trufflehog` tool installed. You can install it using the following command:
-```bash
-brew install trufflehog
-```
-Once you have both tools installed, you can run `pre-commit install` to install the pre-commit hooks in your repository:
 
-### Using the Pre-Commit Hook
-Once you have the `trufflehog` tool installed and have added the patterns you want to search for (OAI keys added by default), you can use the pre-commit hook to automatically scan your code before each commit. To use the pre-commit hook, simply run the `git commit` command as you normally would. 
+The full check formats, lints, type-checks, builds, and tests every workspace
+package. Plugin tests run real Vite builds against test fixtures.
 
-The `trufflehog` tool will automatically scan your code for secrets and reject the commit if any are found. If any secrets are found, you will be prompted to remove them before trying.
+Common commands:
 
+| Command          | Description                              |
+| ---------------- | ---------------------------------------- |
+| `pnpm build`     | Build every workspace package.           |
+| `pnpm test`      | Run every workspace package's tests.     |
+| `pnpm typecheck` | Type-check every workspace package.      |
+| `pnpm lint`      | Lint the repository.                     |
+| `pnpm format`    | Format the repository.                   |
+| `pnpm check`     | Run the complete local validation suite. |
+
+## Contributing
+
+Keep changes focused and include contract-level tests for observable behavior.
+Run `pnpm check` before opening a pull request.
+
+## Security
+
+To report a security issue, follow the instructions in our
+[security policy](SECURITY.md).

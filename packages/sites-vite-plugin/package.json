@@ -1,0 +1,28 @@
+{
+  "name": "@openai/sites-vite-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "pretest": "pnpm run build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.test.json"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "peerDependencies": {
+    "vite": "^8.0.0"
+  },
+  "devDependencies": {
+    "vite": "8.0.14"
+  }
+}
