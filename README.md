@@ -10,9 +10,6 @@ sites hosted by OpenAI.
 - [`@openai/sites-vite-plugin`](packages/sites-vite-plugin): Vite plugin that
   packages OpenAI Sites deployment metadata and Drizzle migrations.
 
-Packages in this repository are private while their APIs and release process are
-being established.
-
 ## Get started
 
 ### Supported environments
@@ -52,3 +49,7 @@ Run `pnpm check` before opening a pull request.
 
 To report a security issue, follow the instructions in our
 [security policy](SECURITY.md).
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

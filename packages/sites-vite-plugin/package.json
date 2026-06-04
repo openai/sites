@@ -1,7 +1,20 @@
 {
   "name": "@openai/sites-vite-plugin",
   "version": "0.1.0",
-  "private": true,
+  "description": "Vite plugin for packaging OpenAI Sites deployment metadata.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openai/sites.git",
+    "directory": "packages/sites-vite-plugin"
+  },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
   "type": "module",
   "sideEffects": false,
   "exports": {
@@ -12,6 +25,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepack": "pnpm run build",
     "pretest": "pnpm run build",
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.test.json"
