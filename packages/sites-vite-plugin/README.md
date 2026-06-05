@@ -1,6 +1,6 @@
 # `@openai/sites-vite-plugin`
 
-Private Vite plugin for packaging OpenAI Sites deployment metadata.
+Vite plugin for packaging OpenAI Sites deployment metadata.
 
 ```ts
 import { sites } from '@openai/sites-vite-plugin';
@@ -20,3 +20,7 @@ deployment artifact:
 The build fails when `.openai/hosting.json` is missing. The generated
 `dist/.openai` directory is replaced on every build. V1 assumes Vite's default
 `dist` output directory and does not expose configuration.
+
+## License
+
+This package is licensed under the [MIT License](LICENSE).
