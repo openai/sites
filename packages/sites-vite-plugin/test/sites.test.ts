@@ -45,8 +45,11 @@ afterEach(async () => {
 });
 
 describe('sites', () => {
-  test('returns a build-only Vite plugin', () => {
-    expect(sites()).toMatchObject({ name: 'sites', apply: 'build' });
+  test('packages metadata without replacing the Vite build configuration', () => {
+    const plugin = sites();
+
+    expect(plugin).toMatchObject({ name: 'sites', apply: 'build' });
+    expect(plugin.config).toBeUndefined();
   });
 
   test('packages hosting configuration and Drizzle migrations', async () => {

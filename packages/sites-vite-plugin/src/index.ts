@@ -14,6 +14,11 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
+/**
+ * Package OpenAI Sites metadata and optional Drizzle migrations after a Vite
+ * build. This plugin is additive: it does not configure the framework build,
+ * select a Cloudflare Worker entrypoint, or add a `fetch` handler.
+ */
 export function sites(): Plugin {
   let root = process.cwd();
 
