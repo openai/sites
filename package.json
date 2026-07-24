@@ -10,9 +10,12 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm build && pnpm test"
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm build && pnpm test",
+    "changeset": "changeset",
+    "changeset:check": "changeset status --since=origin/main"
   },
   "devDependencies": {
+    "@changesets/cli": "2.31.0",
     "@eslint/js": "9.39.4",
     "@types/node": "22.19.19",
     "eslint": "9.39.4",
