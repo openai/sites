@@ -23,7 +23,7 @@ export function sites(): Plugin {
     configResolved(config) {
       root = config.root;
     },
-    async closeBundle() {
+    async writeBundle() {
       const outputDirectory = resolve(root, 'dist', '.openai');
       const hostingConfig = resolve(root, '.openai', 'hosting.json');
       const drizzleSource = resolve(root, 'drizzle');
