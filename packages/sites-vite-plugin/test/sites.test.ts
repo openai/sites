@@ -119,6 +119,23 @@ describe('sites', () => {
     ]);
   });
 
+  test('does not write metadata when Vite output is disabled', async () => {
+    const root = await createProject();
+    await mkdir(join(root, '.openai'));
+    await writeFile(join(root, '.openai', 'hosting.json'), '{}\n');
+
+    await build({
+      root,
+      configFile,
+      logLevel: 'silent',
+      build: { write: false },
+    });
+
+    await expect(readdir(join(root, 'dist'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+  });
+
   test('propagates filesystem errors for inputs that are not missing', async () => {
     const root = await createProject();
     await mkdir(join(root, '.openai', 'hosting.json'), { recursive: true });
