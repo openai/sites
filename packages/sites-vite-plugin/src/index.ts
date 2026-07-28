@@ -1,12 +1,12 @@
-import { createHash, randomBytes } from 'node:crypto';
 import { access, cp, mkdir, rm } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
 
+const localUserId = 'local_seedy';
 const localEmail = 'seedy@sites.test';
 const localFullName = 'Seedy';
-const localCookiePrefix = '__sites_local_auth_';
+const localCookieName = '__sites_local_auth';
 const localHosts = new Set(['localhost', '127.0.0.1', '::1']);
 const localAddresses = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
 const authPaths = new Set([
@@ -38,7 +38,6 @@ export function sites(): Plugin {
       command = config.command;
     },
     configureServer(server) {
-      const sessions = new Set<string>();
       const secure = Boolean(server.config.server.https);
 
       server.config.logger.info(`Sites local sign-in: ${localEmail}`);
@@ -78,18 +77,15 @@ export function sites(): Plugin {
           return;
         }
 
-        const cookieName =
-          localCookiePrefix +
-          createHash('sha256').update(url.host).digest('hex').slice(0, 12);
         const cookies = (request.headers.cookie ?? '')
           .split(';')
           .map((cookie) => cookie.trim())
           .filter(Boolean);
-        const tokens = cookies
-          .filter((cookie) => cookie.startsWith(`${cookieName}=`))
-          .map((cookie) => cookie.slice(cookieName.length + 1));
+        const signInCookies = cookies
+          .filter((cookie) => cookie.startsWith(`${localCookieName}=`))
+          .map((cookie) => cookie.slice(localCookieName.length + 1));
         const applicationCookies = cookies.filter(
-          (cookie) => !cookie.startsWith(localCookiePrefix),
+          (cookie) => !cookie.startsWith(`${localCookieName}=`),
         );
         if (applicationCookies.length !== cookies.length) {
           removeHeader(request, 'cookie');
@@ -106,14 +102,8 @@ export function sites(): Plugin {
         const signIn = url.pathname === '/signin-with-chatgpt';
         const signOut = url.pathname === '/signout-with-chatgpt';
         if (!signIn && !signOut) {
-          if (tokens.length === 1 && sessions.has(tokens[0])) {
-            setHeader(
-              request,
-              'oai-authenticated-user-id',
-              `local_${createHash('sha256')
-                .update(`${url.host}\0${localEmail}`)
-                .digest('hex')}`,
-            );
+          if (signInCookies.length === 1 && signInCookies[0] === '1') {
+            setHeader(request, 'oai-authenticated-user-id', localUserId);
             setHeader(request, 'oai-authenticated-user-email', localEmail);
             setHeader(
               request,
@@ -162,15 +152,6 @@ export function sites(): Plugin {
           return;
         }
 
-        for (const token of tokens) sessions.delete(token);
-        if (signIn && sessions.size >= 32) {
-          const oldest = sessions.values().next();
-          if (!oldest.done) sessions.delete(oldest.value);
-        }
-
-        const token = signIn ? randomBytes(32).toString('base64url') : '';
-        if (signIn) sessions.add(token);
-
         response.statusCode = request.method === 'POST' ? 303 : 302;
         response.setHeader('Cache-Control', 'private, no-store');
         response.setHeader(
@@ -179,7 +160,7 @@ export function sites(): Plugin {
         );
         response.setHeader(
           'Set-Cookie',
-          `${cookieName}=${token}; Path=/; ${signOut ? 'Max-Age=0; ' : ''}HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}`,
+          `${localCookieName}=${signIn ? '1' : ''}; Path=/; ${signOut ? 'Max-Age=0; ' : ''}HttpOnly; SameSite=Lax${secure ? '; Secure' : ''}`,
         );
         response.end();
       });

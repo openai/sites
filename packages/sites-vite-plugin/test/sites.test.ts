@@ -110,7 +110,7 @@ describe('sites', () => {
     });
   });
 
-  test('simulates an isolated sign-in and sign-out on real Vite servers', async () => {
+  test('simulates a stable local user across Vite servers and restarts', async () => {
     const first = await startSite();
     const second = await startSite();
 
@@ -135,8 +135,8 @@ describe('sites', () => {
     expect(signIn.status).toBe(302);
     expect(signIn.headers.get('location')).toBe('/identity?from=signin');
     const setCookie = signIn.headers.get('set-cookie');
-    expect(setCookie).toMatch(
-      /^__sites_local_auth_[a-f0-9]{12}=[A-Za-z0-9_-]{43}; Path=\/; HttpOnly; SameSite=Lax$/,
+    expect(setCookie).toBe(
+      '__sites_local_auth=1; Path=/; HttpOnly; SameSite=Lax',
     );
     expect(setCookie).not.toContain('seedy@sites.test');
     const cookie = sessionCookie(signIn);
@@ -149,7 +149,7 @@ describe('sites', () => {
     });
     const identity = await signedIn.json();
     expect(identity).toEqual({
-      userId: expect.stringMatching(/^local_[a-f0-9]{64}$/),
+      userId: 'local_seedy',
       email: 'seedy@sites.test',
       fullName: 'Seedy',
       encoding: 'percent-encoded-utf-8',
@@ -158,15 +158,19 @@ describe('sites', () => {
 
     const secondSignIn = await second.request('/signin-with-chatgpt');
     const secondCookie = sessionCookie(secondSignIn);
-    expect(secondCookie.split('=', 1)[0]).not.toBe(cookie.split('=', 1)[0]);
-    expect(
-      await (await second.request('/identity', { headers: { cookie } })).json(),
-    ).toEqual({});
+    expect(secondCookie).toBe(cookie);
     const secondIdentity = await (
       await second.request('/identity', { headers: { cookie: secondCookie } })
     ).json();
     expect(secondIdentity.email).toBe('seedy@sites.test');
-    expect(secondIdentity.userId).not.toBe(identity.userId);
+    expect(secondIdentity.userId).toBe(identity.userId);
+    expect(
+      (
+        await (
+          await second.request('/identity', { headers: { cookie } })
+        ).json()
+      ).userId,
+    ).toBe(identity.userId);
 
     const crossSite = await first.request('/signin-with-chatgpt', {
       headers: { origin: 'https://example.com' },
@@ -212,9 +216,7 @@ describe('sites', () => {
     });
     expect(signOut.status).toBe(303);
     expect(signOut.headers.get('set-cookie')).toContain('Max-Age=0');
-    expect(
-      await (await first.request('/identity', { headers: { cookie } })).json(),
-    ).toEqual({});
+    expect(await (await first.request('/identity')).json()).toEqual({});
 
     const preRestartCookie = sessionCookie(
       await first.request('/signin-with-chatgpt'),
@@ -222,47 +224,14 @@ describe('sites', () => {
     await first.close();
     const restarted = await startSite(first.port);
     expect(
-      await (
-        await restarted.request('/identity', {
-          headers: { cookie: preRestartCookie },
-        })
-      ).json(),
-    ).toEqual({});
-    const restartedCookie = sessionCookie(
-      await restarted.request('/signin-with-chatgpt'),
-    );
-    expect(
       (
         await (
           await restarted.request('/identity', {
-            headers: { cookie: restartedCookie },
+            headers: { cookie: preRestartCookie },
           })
         ).json()
       ).userId,
     ).toBe(identity.userId);
-
-    let latestCookie = restartedCookie;
-    for (let index = 0; index < 32; index += 1) {
-      const renewed = await restarted.request('/signin-with-chatgpt');
-      expect(renewed.status).toBe(302);
-      latestCookie = sessionCookie(renewed);
-    }
-    expect(
-      await (
-        await restarted.request('/identity', {
-          headers: { cookie: restartedCookie },
-        })
-      ).json(),
-    ).toEqual({});
-    expect(
-      (
-        await (
-          await restarted.request('/identity', {
-            headers: { cookie: latestCookie },
-          })
-        ).json()
-      ).email,
-    ).toBe('seedy@sites.test');
   });
 
   test('packages hosting configuration and Drizzle migrations', async () => {
@@ -287,7 +256,7 @@ describe('sites', () => {
     await expect(
       readFile(join(root, 'dist', 'index.html'), 'utf8'),
     ).resolves.not.toMatch(
-      /seedy@sites\.test|__sites_local_auth_|signin-with-chatgpt/,
+      /seedy@sites\.test|__sites_local_auth|signin-with-chatgpt/,
     );
     await expect(
       readFile(
