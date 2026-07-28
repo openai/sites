@@ -21,6 +21,17 @@ The build fails when `.openai/hosting.json` is missing. The generated
 `dist/.openai` directory is replaced on every build. V1 assumes Vite's default
 `dist` output directory and does not expose configuration.
 
+## Local sign-in
+
+During `vite dev`, the same `sites()` plugin provides a simulated Sign in with
+ChatGPT user so authenticated Site pages can be developed locally.
+
+- Navigate to `/signin-with-chatgpt?return_to=/` to sign in.
+- The simulated user is `seedy@sites.test` (`Seedy`).
+- Navigate to `/signout-with-chatgpt?return_to=/` to sign out.
+- Sessions are local, temporary, and isolated to each Site.
+- Production builds do not include simulated users or local sessions.
+
 ## License
 
 This package is licensed under the [MIT License](LICENSE).
