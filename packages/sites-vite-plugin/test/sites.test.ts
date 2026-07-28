@@ -46,7 +46,7 @@ async function startSite(port = 0) {
     root,
     configFile: false,
     logLevel: 'silent',
-    server: { host: '127.0.0.1', port },
+    server: { host: '127.0.0.1', port, allowedHosts: true },
     plugins: [
       sites(),
       {
@@ -172,19 +172,26 @@ describe('sites', () => {
       headers: { origin: 'https://example.com' },
     });
     expect(crossSite.status).toBe(403);
-    const forgedHost = await new Promise<number>((resolve, reject) => {
-      const request = httpRequest(
-        `${first.origin}/signin-with-chatgpt`,
-        { headers: { host: 'example.com' } },
-        (response) => {
-          response.resume();
-          resolve(response.statusCode ?? 0);
-        },
-      );
-      request.on('error', reject);
-      request.end();
-    });
-    expect(forgedHost).toBe(403);
+    for (const absoluteTarget of [false, true]) {
+      const forgedHost = await new Promise<number>((resolve, reject) => {
+        const request = httpRequest(
+          first.origin,
+          {
+            headers: { host: 'example.com' },
+            path: absoluteTarget
+              ? `${first.origin}/signin-with-chatgpt`
+              : '/signin-with-chatgpt',
+          },
+          (response) => {
+            response.resume();
+            resolve(response.statusCode ?? 0);
+          },
+        );
+        request.on('error', reject);
+        request.end();
+      });
+      expect(forgedHost).toBe(403);
+    }
     expect((await first.request('/callback')).status).toBe(501);
     expect(
       (
@@ -233,6 +240,29 @@ describe('sites', () => {
         ).json()
       ).userId,
     ).toBe(identity.userId);
+
+    let latestCookie = restartedCookie;
+    for (let index = 0; index < 32; index += 1) {
+      const renewed = await restarted.request('/signin-with-chatgpt');
+      expect(renewed.status).toBe(302);
+      latestCookie = sessionCookie(renewed);
+    }
+    expect(
+      await (
+        await restarted.request('/identity', {
+          headers: { cookie: restartedCookie },
+        })
+      ).json(),
+    ).toEqual({});
+    expect(
+      (
+        await (
+          await restarted.request('/identity', {
+            headers: { cookie: latestCookie },
+          })
+        ).json()
+      ).email,
+    ).toBe('seedy@sites.test');
   });
 
   test('packages hosting configuration and Drizzle migrations', async () => {

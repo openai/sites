@@ -49,12 +49,13 @@ export function sites(): Plugin {
           }
         }
 
+        let authority: URL;
         let url: URL;
         try {
-          url = new URL(
-            request.url ?? '/',
+          authority = new URL(
             `${secure ? 'https' : 'http'}://${request.headers.host}`,
           );
+          url = new URL(request.url ?? '/', authority);
         } catch {
           if (authPaths.has((request.url ?? '/').split('?')[0])) {
             respond(response, 403);
@@ -64,10 +65,13 @@ export function sites(): Plugin {
           return;
         }
 
-        const hostname = url.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+        const hostname = authority.hostname
+          .replace(/^\[|\]$/g, '')
+          .toLowerCase();
         if (
           !localHosts.has(hostname) ||
-          !localAddresses.has(request.socket.remoteAddress ?? '')
+          !localAddresses.has(request.socket.remoteAddress ?? '') ||
+          url.origin !== authority.origin
         ) {
           if (authPaths.has(url.pathname)) respond(response, 403);
           else next();
@@ -160,8 +164,8 @@ export function sites(): Plugin {
 
         for (const token of tokens) sessions.delete(token);
         if (signIn && sessions.size >= 32) {
-          respond(response, 429);
-          return;
+          const oldest = sessions.values().next();
+          if (!oldest.done) sessions.delete(oldest.value);
         }
 
         const token = signIn ? randomBytes(32).toString('base64url') : '';
