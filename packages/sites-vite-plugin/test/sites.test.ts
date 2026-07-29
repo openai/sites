@@ -7,13 +7,15 @@ import {
   rm,
   writeFile,
 } from 'node:fs/promises';
+import { request as httpRequest } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
-import { build } from 'vite';
+import { build, createServer, type ViteDevServer } from 'vite';
 import { sites } from '@openai/sites-vite-plugin';
 
 const projects: string[] = [];
+const servers: ViteDevServer[] = [];
 const configFile = join(
   import.meta.dirname,
   'fixtures',
@@ -38,15 +40,198 @@ async function buildProject(root: string): Promise<void> {
   });
 }
 
+async function startSite(port = 0) {
+  const root = await createProject();
+  const server = await createServer({
+    root,
+    configFile: false,
+    logLevel: 'silent',
+    server: { host: '127.0.0.1', port, allowedHosts: true },
+    plugins: [
+      sites(),
+      {
+        name: 'local-identity-fixture',
+        configureServer(viteServer) {
+          viteServer.middlewares.use('/identity', (request, response) => {
+            response.setHeader('Content-Type', 'application/json');
+            response.end(
+              JSON.stringify({
+                userId: request.headers['oai-authenticated-user-id'],
+                email: request.headers['oai-authenticated-user-email'],
+                fullName: request.headers['oai-authenticated-user-full-name'],
+                encoding:
+                  request.headers['oai-authenticated-user-full-name-encoding'],
+                cookie: request.headers.cookie,
+              }),
+            );
+          });
+        },
+      },
+    ],
+  });
+  servers.push(server);
+  await server.listen();
+
+  const address = server.httpServer?.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('The Sites development server has no local address');
+  }
+
+  const origin = `http://127.0.0.1:${address.port}`;
+  return {
+    origin,
+    port: address.port,
+    close: () => server.close(),
+    request(path: string, options: RequestInit = {}) {
+      return fetch(`${origin}${path}`, { ...options, redirect: 'manual' });
+    },
+  };
+}
+
+function sessionCookie(response: Response): string {
+  const cookie = response.headers.get('set-cookie');
+  if (!cookie) throw new Error('Local sign-in did not return a session cookie');
+  return cookie.split(';', 1)[0];
+}
+
 afterEach(async () => {
+  await Promise.all(servers.splice(0).map((server) => server.close()));
   await Promise.all(
     projects.splice(0).map((project) => rm(project, { recursive: true })),
   );
 });
 
 describe('sites', () => {
-  test('returns a build-only Vite plugin', () => {
-    expect(sites()).toMatchObject({ name: 'sites', apply: 'build' });
+  test('uses one plugin for local sign-in and production builds', () => {
+    expect(sites()).toMatchObject({
+      name: 'sites',
+      configureServer: expect.any(Function),
+      closeBundle: expect.any(Function),
+    });
+  });
+
+  test('simulates a stable local user across Vite servers and restarts', async () => {
+    const first = await startSite();
+    const second = await startSite();
+
+    const anonymous = await first.request('/identity', {
+      headers: {
+        cookie: 'theme=dark',
+        'oai-authenticated-user-id': 'spoofed',
+        'oai-authenticated-user-email': 'spoofed@example.com',
+      },
+    });
+    expect(await anonymous.json()).toEqual({ cookie: 'theme=dark' });
+
+    const prefetch = await first.request('/signin-with-chatgpt', {
+      headers: { 'next-router-prefetch': '1' },
+    });
+    expect(prefetch.status).toBe(204);
+    expect(prefetch.headers.get('set-cookie')).toBeNull();
+
+    const signIn = await first.request(
+      '/signin-with-chatgpt?return_to=%2Fidentity%3Ffrom%3Dsignin',
+    );
+    expect(signIn.status).toBe(302);
+    expect(signIn.headers.get('location')).toBe('/identity?from=signin');
+    const setCookie = signIn.headers.get('set-cookie');
+    expect(setCookie).toBe(
+      '__sites_local_auth=1; Path=/; HttpOnly; SameSite=Lax',
+    );
+    expect(setCookie).not.toContain('seedy@sites.test');
+    const cookie = sessionCookie(signIn);
+
+    const signedIn = await first.request('/identity', {
+      headers: {
+        cookie: `${cookie}; theme=dark`,
+        'oai-authenticated-user-email': 'spoofed@example.com',
+      },
+    });
+    const identity = await signedIn.json();
+    expect(identity).toEqual({
+      userId: 'local_seedy',
+      email: 'seedy@sites.test',
+      fullName: 'Seedy',
+      encoding: 'percent-encoded-utf-8',
+      cookie: 'theme=dark',
+    });
+
+    const secondSignIn = await second.request('/signin-with-chatgpt');
+    const secondCookie = sessionCookie(secondSignIn);
+    expect(secondCookie).toBe(cookie);
+    const secondIdentity = await (
+      await second.request('/identity', { headers: { cookie: secondCookie } })
+    ).json();
+    expect(secondIdentity.email).toBe('seedy@sites.test');
+    expect(secondIdentity.userId).toBe(identity.userId);
+    expect(
+      (
+        await (
+          await second.request('/identity', { headers: { cookie } })
+        ).json()
+      ).userId,
+    ).toBe(identity.userId);
+
+    const crossSite = await first.request('/signin-with-chatgpt', {
+      headers: { origin: 'https://example.com' },
+    });
+    expect(crossSite.status).toBe(403);
+    for (const absoluteTarget of [false, true]) {
+      const forgedHost = await new Promise<number>((resolve, reject) => {
+        const request = httpRequest(
+          first.origin,
+          {
+            headers: { host: 'example.com' },
+            path: absoluteTarget
+              ? `${first.origin}/signin-with-chatgpt`
+              : '/signin-with-chatgpt',
+          },
+          (response) => {
+            response.resume();
+            resolve(response.statusCode ?? 0);
+          },
+        );
+        request.on('error', reject);
+        request.end();
+      });
+      expect(forgedHost).toBe(403);
+    }
+    expect((await first.request('/callback')).status).toBe(501);
+    expect(
+      (
+        await first.request('/signin-with-chatgpt', {
+          method: 'POST',
+        })
+      ).status,
+    ).toBe(405);
+
+    const unsafeReturn = await first.request(
+      '/signin-with-chatgpt?return_to=https%3A%2F%2Fexample.com',
+    );
+    expect(unsafeReturn.headers.get('location')).toBe('/');
+
+    const signOut = await first.request('/signout-with-chatgpt', {
+      method: 'POST',
+      headers: { cookie },
+    });
+    expect(signOut.status).toBe(303);
+    expect(signOut.headers.get('set-cookie')).toContain('Max-Age=0');
+    expect(await (await first.request('/identity')).json()).toEqual({});
+
+    const preRestartCookie = sessionCookie(
+      await first.request('/signin-with-chatgpt'),
+    );
+    await first.close();
+    const restarted = await startSite(first.port);
+    expect(
+      (
+        await (
+          await restarted.request('/identity', {
+            headers: { cookie: preRestartCookie },
+          })
+        ).json()
+      ).userId,
+    ).toBe(identity.userId);
   });
 
   test('packages hosting configuration and Drizzle migrations', async () => {
@@ -68,6 +253,11 @@ describe('sites', () => {
     await expect(
       readFile(join(root, 'dist', '.openai', 'hosting.json'), 'utf8'),
     ).resolves.toBe('{"d1":"DATABASE"}\n');
+    await expect(
+      readFile(join(root, 'dist', 'index.html'), 'utf8'),
+    ).resolves.not.toMatch(
+      /seedy@sites\.test|__sites_local_auth|signin-with-chatgpt/,
+    );
     await expect(
       readFile(
         join(root, 'dist', '.openai', 'drizzle', '0000_initial.sql'),
