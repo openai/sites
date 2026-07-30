@@ -1,7 +1,7 @@
 {
   "name": "@openai/create-sites",
   "version": "0.1.0",
-  "description": "Create OpenAI Sites projects.",
+  "description": "Create ChatGPT Sites projects.",
   "license": "MIT",
   "repository": {
     "type": "git",

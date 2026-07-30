@@ -7,7 +7,7 @@ sites hosted by OpenAI.
 
 ## Packages
 
-- [`@openai/create-sites`](packages/create-sites): CLI for creating OpenAI Sites
+- [`@openai/create-sites`](packages/create-sites): CLI for creating ChatGPT Sites
   projects.
 - [`@openai/sites-vite-plugin`](packages/sites-vite-plugin): Vite plugin that
   packages OpenAI Sites deployment metadata and Drizzle migrations.

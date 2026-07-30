@@ -227,7 +227,7 @@ async function main(): Promise<void> {
 
   await new Command()
     .name('create-sites')
-    .description('Create an OpenAI Sites project.')
+    .description('Create a ChatGPT Sites project.')
     .version(manifest.version, '-v, --version', 'Show the package version')
     .argument('[directory]', 'Project directory')
     .option('--add-ons <list>', 'Comma-separated add-ons', parseAddOns)
