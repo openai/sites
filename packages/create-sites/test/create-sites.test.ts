@@ -284,6 +284,7 @@ describe('create-sites', () => {
       const workspace = await createWorkspace();
       const result = runCli(workspace, ['example-site', '--yes'], {
         npm_config_user_agent: `${manager}/1.0.0`,
+        NPM_CONFIG_USER_AGENT: `${manager}/1.0.0`,
       });
 
       expect(result.status, result.stderr).toBe(0);
