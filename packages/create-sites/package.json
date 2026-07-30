@@ -1,0 +1,38 @@
+{
+  "name": "@openai/create-sites",
+  "version": "0.1.0",
+  "description": "Create OpenAI Sites projects.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/openai/sites.git",
+    "directory": "packages/create-sites"
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "type": "module",
+  "bin": {
+    "create-sites": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepack": "pnpm run build",
+    "pretest": "pnpm run build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.test.json"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "dependencies": {
+    "@clack/prompts": "1.7.0",
+    "commander": "14.0.3",
+    "tinyexec": "1.2.2"
+  }
+}
