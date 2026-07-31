@@ -118,6 +118,9 @@ describe('create-sites', () => {
 
     const projectPackage = await readPackage(project);
     expect(projectPackage.name).toBe('sites-project');
+    expect(projectPackage.scripts?.start).toBe(
+      'wrangler dev --config dist/server/wrangler.json',
+    );
     expect(
       projectPackage.devDependencies?.['@cloudflare/workers-types'],
     ).toEqual(expect.any(String));
