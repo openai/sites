@@ -121,6 +121,14 @@ describe('create-sites', () => {
     expect(
       projectPackage.devDependencies?.['@cloudflare/workers-types'],
     ).toEqual(expect.any(String));
+    expect(projectPackage.dependencies?.vinext).toEqual(expect.any(String));
+    expect(projectPackage.dependencies?.['react-server-dom-webpack']).toEqual(
+      expect.any(String),
+    );
+    expect(projectPackage.devDependencies?.vinext).toBeUndefined();
+    expect(
+      projectPackage.devDependencies?.['react-server-dom-webpack'],
+    ).toBeUndefined();
 
     const pluginVersion =
       projectPackage.dependencies?.['@openai/sites-vite-plugin'] ??
