@@ -130,7 +130,7 @@ describe('create-sites', () => {
 
     const viteConfig = await readFile(join(project, 'vite.config.ts'), 'utf8');
     expect(viteConfig).toMatch(/from\s+['"]@openai\/sites-vite-plugin['"]/);
-    expect(viteConfig).toContain("main: 'vinext/server/app-router-entry'");
+    expect(viteConfig).toContain("main: 'vinext/server/fetch-handler'");
     await expect(
       access(join(project, 'worker', 'index.ts')),
     ).rejects.toMatchObject({ code: 'ENOENT' });
