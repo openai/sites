@@ -16,9 +16,11 @@
   },
   "devDependencies": {
     "@changesets/cli": "2.31.0",
+    "@cloudflare/workers-types": "4.20260515.1",
     "@types/node": "22.19.19",
     "oxfmt": "0.61.0",
     "oxlint": "1.76.0",
+    "oxlint-tsgolint": "7.0.2001",
     "typescript": "5.9.3",
     "vitest": "4.1.7"
   },

@@ -2,10 +2,13 @@
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "unicorn"],
   "categories": {
-    "correctness": "off"
+    "correctness": "error"
   },
   "env": {
     "builtin": true
+  },
+  "options": {
+    "typeAware": true
   },
   "ignorePatterns": ["**/dist/**", "**/node_modules/**", "**/coverage/**"],
   "rules": {
