@@ -206,8 +206,8 @@ describe('create-sites', () => {
     expect(projectPackage.scripts).toMatchObject({
       lint: 'oxlint',
       format: 'oxfmt',
-      'format:check': 'oxfmt --check',
     });
+    expect(projectPackage.scripts?.['format:check']).toBeUndefined();
     expect(projectPackage.devDependencies).toMatchObject({
       oxfmt: expect.any(String),
       oxlint: expect.any(String),

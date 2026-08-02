@@ -10,8 +10,7 @@
     "build": "vinext build",
     "start": "vinext start",
     "lint": "oxlint",
-    "format": "oxfmt",
-    "format:check": "oxfmt --check"
+    "format": "oxfmt"
   },
   "dependencies": {
     "next": "16.2.6",
