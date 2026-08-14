@@ -10,7 +10,7 @@ import {
   writeFile,
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
 
 const executable = join(import.meta.dirname, '..', 'dist', 'index.js');
@@ -48,6 +48,30 @@ async function readPackage(project: string): Promise<GeneratedPackage> {
     await readFile(join(project, 'package.json'), 'utf8'),
   );
   return contents;
+}
+
+async function readProjectFiles(
+  project: string,
+): Promise<Record<string, string>> {
+  const files: Record<string, string> = {};
+
+  async function walk(directory: string): Promise<void> {
+    const entries = await readdir(directory, { withFileTypes: true });
+    entries.sort((left, right) => left.name.localeCompare(right.name));
+
+    for (const entry of entries) {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await walk(path);
+      } else {
+        const relativePath = relative(project, path).replaceAll('\\', '/');
+        files[relativePath] = await readFile(path, 'utf8');
+      }
+    }
+  }
+
+  await walk(project);
+  return files;
 }
 
 afterEach(async () => {
@@ -193,6 +217,118 @@ describe('create-sites', () => {
     }
   });
 
+  test('creates the static-default golden project without dependencies', async () => {
+    const workspace = await createWorkspace();
+    const result = runCli(workspace, [
+      'example-site',
+      '--yes',
+      '--template',
+      'static-default',
+    ]);
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toBe('Created Sites project in example-site.\n');
+
+    const project = join(workspace, 'example-site');
+    const files = await readProjectFiles(project);
+    expect(Object.keys(files)).toEqual([
+      '.gitignore',
+      '.openai/hosting.json',
+      'public/404.html',
+      'public/assets/favicon.svg',
+      'public/index.html',
+      'public/script.js',
+      'public/styles.css',
+    ]);
+
+    const creatorPackage: { version: string } = JSON.parse(
+      await readFile(join(import.meta.dirname, '..', 'package.json'), 'utf8'),
+    );
+    expect(JSON.parse(files['.openai/hosting.json'])).toEqual({
+      d1: null,
+      r2: null,
+      runtime: {
+        kind: 'static-assets',
+        assets: {
+          directory: 'public',
+          html_handling: 'auto-trailing-slash',
+          not_found_handling: '404-page',
+        },
+      },
+      template: { id: 'static-default', version: '1' },
+      provenance: {
+        generator: '@openai/create-sites',
+        version: creatorPackage.version,
+      },
+    });
+
+    expect(files['public/index.html']).toContain('<!doctype html>');
+    expect(files['public/index.html']).toContain('href="/styles.css"');
+    expect(files['public/index.html']).toContain('src="/script.js"');
+    expect(files['public/404.html']).toContain('<title>Page not found</title>');
+    expect(files['public/script.js']).toContain("addEventListener('click'");
+    expect(files['public/styles.css']).toContain(':focus-visible');
+
+    for (const forbidden of [
+      'package.json',
+      'package-lock.json',
+      'pnpm-lock.yaml',
+      'yarn.lock',
+      'bun.lock',
+      'node_modules',
+      'dist',
+      'vite.config.ts',
+      'worker/index.js',
+    ]) {
+      await expect(access(join(project, forbidden))).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+    }
+  });
+
+  test('generates deterministic static-default projects', async () => {
+    const firstWorkspace = await createWorkspace();
+    const secondWorkspace = await createWorkspace();
+
+    const first = runCli(firstWorkspace, [
+      'example-site',
+      '--yes',
+      '--template',
+      'static-default',
+    ]);
+    const second = runCli(secondWorkspace, [
+      'example-site',
+      '--yes',
+      '--template',
+      'static-default',
+    ]);
+
+    expect(first.status, first.stderr).toBe(0);
+    expect(second.status, second.stderr).toBe(0);
+    expect(
+      await readProjectFiles(join(firstWorkspace, 'example-site')),
+    ).toEqual(await readProjectFiles(join(secondWorkspace, 'example-site')));
+  });
+
+  test('keeps fullstack-default byte-compatible with the implicit default', async () => {
+    const implicitWorkspace = await createWorkspace();
+    const explicitWorkspace = await createWorkspace();
+
+    const implicit = runCli(implicitWorkspace, ['example-site', '--yes']);
+    const explicit = runCli(explicitWorkspace, [
+      'example-site',
+      '--yes',
+      '--template',
+      'fullstack-default',
+    ]);
+
+    expect(implicit.status, implicit.stderr).toBe(0);
+    expect(explicit.status, explicit.stderr).toBe(0);
+    expect(
+      await readProjectFiles(join(implicitWorkspace, 'example-site')),
+    ).toEqual(await readProjectFiles(join(explicitWorkspace, 'example-site')));
+  });
+
   test('creates a minimal starter without bundled previews or tests', async () => {
     const workspace = await createWorkspace();
     const result = runCli(workspace, ['example-site', '--yes']);
@@ -329,6 +465,9 @@ describe('create-sites', () => {
     expect(result.stdout).toContain('Comma-separated add-ons');
     expect(result.stdout).not.toContain('d1,r2,auth');
     expect(result.stdout).toContain('--yes');
+    expect(result.stdout).toContain('--template <id>');
+    expect(result.stdout).toContain('fullstack-default');
+    expect(result.stdout).toContain('static-default');
     expect(result.stdout).toContain('--package-manager');
     expect(result.stdout).toContain('--list-add-ons');
     expect(result.stdout).toContain('--json');
@@ -379,6 +518,10 @@ describe('create-sites', () => {
       name: 'JSON output without an add-on list',
       args: ['--json'],
     },
+    {
+      name: 'an unknown template',
+      args: ['example-site', '--yes', '--template', 'unknown'],
+    },
   ])('rejects $name before creating files', async ({ args }) => {
     const workspace = await createWorkspace();
     const result = runCli(workspace, args);
@@ -386,6 +529,42 @@ describe('create-sites', () => {
     expect(result.status).not.toBe(0);
     expect(await readdir(workspace)).toEqual([]);
   });
+
+  test.each([
+    {
+      name: 'add-ons',
+      args: [
+        'example-site',
+        '--yes',
+        '--template',
+        'static-default',
+        '--add-ons',
+        'd1',
+      ],
+      error: 'does not support add-ons',
+    },
+    {
+      name: 'dependency installation',
+      args: [
+        'example-site',
+        '--yes',
+        '--template',
+        'static-default',
+        '--install',
+      ],
+      error: 'has no dependencies to install',
+    },
+  ])(
+    'rejects static-default with $name before creating files',
+    async ({ args, error }) => {
+      const workspace = await createWorkspace();
+      const result = runCli(workspace, args);
+
+      expect(result.status).not.toBe(0);
+      expect(result.stderr).toContain(error);
+      expect(await readdir(workspace)).toEqual([]);
+    },
+  );
 
   test('rejects unknown add-ons before creating any project files', async () => {
     const workspace = await createWorkspace();
