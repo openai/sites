@@ -86,8 +86,7 @@ export default function Home() {
         </aside>
       </div>
 
-      <section
-        role="status"
+      <output
         aria-live="polite"
         aria-atomic="true"
         className="absolute left-1/2 top-[clamp(96px,13vh,122px)] w-[min(620px,calc(100%-40px))] -translate-x-1/2 rounded-[18px] border border-stone-200 bg-white/95 px-5 py-5 shadow-[0_18px_50px_rgb(24_24_27/9%)] backdrop-blur-sm"
@@ -101,7 +100,7 @@ export default function Home() {
         <p className="mt-1 text-sm text-stone-500">
           Your first version will appear here automatically when it’s ready.
         </p>
-      </section>
+      </output>
     </main>
   );
 }
