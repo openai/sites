@@ -134,7 +134,9 @@ describe('create-sites', () => {
       projectPackage.dependencies?.['@openai/sites-vite-plugin'] ??
       projectPackage.devDependencies?.['@openai/sites-vite-plugin'];
     expect(pluginVersion).toEqual(expect.any(String));
-    expect(pluginVersion).not.toMatch(/^(?:workspace|file|link):/);
+    expect(pluginVersion).toMatch(
+      /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/,
+    );
 
     const viteConfig = await readFile(join(project, 'vite.config.ts'), 'utf8');
     expect(viteConfig).toMatch(/from\s+['"]@openai\/sites-vite-plugin['"]/);
