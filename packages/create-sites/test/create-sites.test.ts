@@ -121,6 +121,7 @@ describe('create-sites', () => {
     expect(projectPackage.scripts?.start).toBe(
       'wrangler dev --config dist/server/wrangler.json',
     );
+    expect(projectPackage.dependencies?.next).toBeUndefined();
     expect(
       projectPackage.devDependencies?.['@cloudflare/workers-types'],
     ).toEqual(expect.any(String));
@@ -140,6 +141,10 @@ describe('create-sites', () => {
     expect(pluginVersion).toMatch(
       /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/,
     );
+
+    const tsconfig = await readFile(join(project, 'tsconfig.json'), 'utf8');
+    expect(tsconfig).toContain('"vinext/types"');
+    expect(tsconfig).not.toContain('"name": "next"');
 
     const viteConfig = await readFile(join(project, 'vite.config.ts'), 'utf8');
     expect(viteConfig).toMatch(/from\s+['"]@openai\/sites-vite-plugin['"]/);
