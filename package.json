@@ -7,7 +7,7 @@
     "build": "pnpm --recursive --if-present build",
     "test": "pnpm --recursive --if-present test",
     "typecheck": "pnpm --recursive --if-present typecheck",
-    "lint": "oxlint",
+    "lint": "oxlint --ignore-pattern \"packages/create-sites/templates/**\"",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm build && pnpm test",
