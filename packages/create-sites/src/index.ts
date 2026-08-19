@@ -16,6 +16,37 @@ import { xSync } from 'tinyexec';
 
 type AddOn = 'd1' | 'r2' | 'auth';
 type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun';
+const templateIds = ['fullstack-default', 'static-default'] as const;
+type TemplateId = (typeof templateIds)[number];
+
+type TemplateDefinition =
+  | {
+      id: 'fullstack-default';
+      runtime: 'vinext-fullstack';
+      family: 'default';
+      directory: 'vinext';
+    }
+  | {
+      id: 'static-default';
+      runtime: 'static-assets';
+      family: 'default';
+      directory: 'static';
+    };
+
+const templateDefinitions = {
+  'fullstack-default': {
+    id: 'fullstack-default',
+    runtime: 'vinext-fullstack',
+    family: 'default',
+    directory: 'vinext',
+  },
+  'static-default': {
+    id: 'static-default',
+    runtime: 'static-assets',
+    family: 'default',
+    directory: 'static',
+  },
+} as const satisfies Record<TemplateId, TemplateDefinition>;
 
 const addOns: { name: AddOn; description: string }[] = [
   { name: 'd1', description: 'Add a Cloudflare D1 database and Drizzle.' },
@@ -37,8 +68,33 @@ type CliOptions = {
   yes?: boolean;
   install: boolean;
   packageManager?: PackageManager;
+  template?: TemplateId;
   listAddOns?: boolean;
   json?: boolean;
+};
+
+type FullstackHosting = {
+  d1: string | null;
+  r2: string | null;
+};
+
+type StaticHosting = FullstackHosting & {
+  runtime: {
+    kind: 'static-assets';
+    assets: {
+      directory: 'public';
+      html_handling: 'auto-trailing-slash';
+      not_found_handling: '404-page';
+    };
+  };
+  template: {
+    id: 'static-default';
+    version: '1';
+  };
+  provenance: {
+    generator: '@openai/create-sites';
+    version: string;
+  };
 };
 
 function parseAddOns(value: string | undefined): AddOn[] {
@@ -56,6 +112,10 @@ function parseAddOns(value: string | undefined): AddOn[] {
     .map((addOn) => addOn.name);
 }
 
+function resolveTemplate(id: TemplateId | undefined): TemplateDefinition {
+  return templateDefinitions[id ?? 'fullstack-default'];
+}
+
 async function writeJson(path: string, value: object): Promise<void> {
   await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
 }
@@ -63,6 +123,7 @@ async function writeJson(path: string, value: object): Promise<void> {
 async function createSite(
   directory: string | undefined,
   options: CliOptions,
+  creatorVersion: string,
 ): Promise<void> {
   if (options.listAddOns) {
     const output = options.json
@@ -78,8 +139,28 @@ async function createSite(
     throw new Error('--json requires --list-add-ons.');
   }
 
+  const template = resolveTemplate(options.template);
+  if (template.runtime === 'static-assets' && options.addOns?.length) {
+    throw new Error(
+      'Template "static-default" does not support add-ons. Use "fullstack-default" when D1, R2, or auth is required.',
+    );
+  }
+  if (template.runtime === 'static-assets' && options.install) {
+    throw new Error(
+      'Template "static-default" has no dependencies to install; remove --install.',
+    );
+  }
+
   let selected = options.addOns ?? [];
-  if (!options.yes && process.stdin.isTTY && process.stdout.isTTY) {
+  const needsPrompt =
+    directory === undefined ||
+    (template.runtime === 'vinext-fullstack' && options.addOns === undefined);
+  if (
+    !options.yes &&
+    needsPrompt &&
+    process.stdin.isTTY &&
+    process.stdout.isTTY
+  ) {
     const answers = await group(
       {
         directory: () =>
@@ -91,6 +172,7 @@ async function createSite(
               })
             : undefined,
         addOns: () =>
+          template.runtime === 'vinext-fullstack' &&
           options.addOns === undefined
             ? multiselect<AddOn>({
                 message: 'Which add-ons should be included?',
@@ -145,29 +227,61 @@ async function createSite(
   }
 
   const templates = join(import.meta.dirname, '..', 'templates');
-  const base = join(templates, 'vinext');
-  const manifest: PackageJson = JSON.parse(
-    await readFile(join(base, 'package.json'), 'utf8'),
-  );
-  const hosting: { d1: string | null; r2: string | null } = JSON.parse(
-    await readFile(join(base, '.openai', 'hosting.json'), 'utf8'),
-  );
+  const base = join(templates, template.directory);
+  let scaffold:
+    | {
+        kind: 'fullstack';
+        manifest: PackageJson;
+        hosting: FullstackHosting;
+      }
+    | { kind: 'static-assets'; hosting: StaticHosting };
 
-  hosting.d1 = selected.includes('d1') ? 'DB' : null;
-  hosting.r2 = selected.includes('r2') ? 'FILES' : null;
+  if (template.runtime === 'vinext-fullstack') {
+    const manifest: PackageJson = JSON.parse(
+      await readFile(join(base, 'package.json'), 'utf8'),
+    );
+    const hosting: FullstackHosting = JSON.parse(
+      await readFile(join(base, '.openai', 'hosting.json'), 'utf8'),
+    );
 
-  if (selected.includes('d1')) {
-    manifest.dependencies = {
-      ...manifest.dependencies,
-      'drizzle-orm': '0.45.2',
-    };
-    manifest.devDependencies = {
-      ...manifest.devDependencies,
-      'drizzle-kit': '0.31.10',
-    };
-    manifest.scripts = {
-      ...manifest.scripts,
-      'db:generate': 'drizzle-kit generate',
+    hosting.d1 = selected.includes('d1') ? 'DB' : null;
+    hosting.r2 = selected.includes('r2') ? 'FILES' : null;
+
+    if (selected.includes('d1')) {
+      manifest.dependencies = {
+        ...manifest.dependencies,
+        'drizzle-orm': '0.45.2',
+      };
+      manifest.devDependencies = {
+        ...manifest.devDependencies,
+        'drizzle-kit': '0.31.10',
+      };
+      manifest.scripts = {
+        ...manifest.scripts,
+        'db:generate': 'drizzle-kit generate',
+      };
+    }
+    scaffold = { kind: 'fullstack', manifest, hosting };
+  } else {
+    scaffold = {
+      kind: 'static-assets',
+      hosting: {
+        d1: null,
+        r2: null,
+        runtime: {
+          kind: 'static-assets',
+          assets: {
+            directory: 'public',
+            html_handling: 'auto-trailing-slash',
+            not_found_handling: '404-page',
+          },
+        },
+        template: { id: 'static-default', version: '1' },
+        provenance: {
+          generator: '@openai/create-sites',
+          version: creatorVersion,
+        },
+      },
     };
   }
 
@@ -177,20 +291,27 @@ async function createSite(
     join(destination, '_gitignore'),
     join(destination, '.gitignore'),
   );
+  if (scaffold.kind === 'fullstack') {
+    for (const addOn of selected) {
+      await cp(join(templates, 'addons', addOn), destination, {
+        recursive: true,
+        force: false,
+      });
+    }
 
-  for (const addOn of selected) {
-    await cp(join(templates, 'addons', addOn), destination, {
-      recursive: true,
-      force: false,
-    });
+    await Promise.all([
+      writeJson(join(destination, 'package.json'), scaffold.manifest),
+      writeJson(join(destination, '.openai', 'hosting.json'), scaffold.hosting),
+    ]);
+  } else {
+    await mkdir(join(destination, '.openai'), { recursive: true });
+    await writeJson(
+      join(destination, '.openai', 'hosting.json'),
+      scaffold.hosting,
+    );
   }
 
-  await Promise.all([
-    writeJson(join(destination, 'package.json'), manifest),
-    writeJson(join(destination, '.openai', 'hosting.json'), hosting),
-  ]);
-
-  if (options.install) {
+  if (scaffold.kind === 'fullstack' && options.install) {
     const installation = xSync(manager, ['install'], {
       nodeOptions: { cwd: destination, stdio: 'inherit' },
       throwOnError: true,
@@ -202,11 +323,13 @@ async function createSite(
 
   const displayPath = relative(process.cwd(), destination) || '.';
   process.stdout.write(`Created Sites project in ${displayPath}.\n`);
-  process.stdout.write(
-    `Add-ons: ${selected.length ? selected.join(', ') : 'none'}.\n`,
-  );
+  if (scaffold.kind === 'fullstack') {
+    process.stdout.write(
+      `Add-ons: ${selected.length ? selected.join(', ') : 'none'}.\n`,
+    );
+  }
 
-  if (!options.install) {
+  if (scaffold.kind === 'fullstack' && !options.install) {
     process.stdout.write('\nNext steps:\n');
     if (displayPath !== '.') {
       const escapedPath =
@@ -223,14 +346,18 @@ async function main(): Promise<void> {
   const manifest: PackageJson = JSON.parse(
     await readFile(join(import.meta.dirname, '..', 'package.json'), 'utf8'),
   );
-  if (!manifest.version) throw new Error('Package version is unavailable.');
+  const creatorVersion = manifest.version;
+  if (!creatorVersion) throw new Error('Package version is unavailable.');
 
   await new Command()
     .name('create-sites')
     .description('Create a ChatGPT Sites project.')
-    .version(manifest.version, '-v, --version', 'Show the package version')
+    .version(creatorVersion, '-v, --version', 'Show the package version')
     .argument('[directory]', 'Project directory')
     .option('--add-ons <list>', 'Comma-separated add-ons', parseAddOns)
+    .addOption(
+      new Option('--template <id>', 'Project template').choices(templateIds),
+    )
     .option('-y, --yes', 'Use defaults without prompting')
     .option('--install', 'Install project dependencies', false)
     .option('--no-install', 'Generate without installing dependencies')
@@ -241,7 +368,9 @@ async function main(): Promise<void> {
         packageManagers,
       ),
     )
-    .action(createSite)
+    .action((directory: string | undefined, options: CliOptions) =>
+      createSite(directory, options, creatorVersion),
+    )
     .parseAsync();
 }
 
