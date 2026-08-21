@@ -13,12 +13,12 @@ pnpm create @openai/sites@latest my-site --yes --add-ons d1,r2,shadcn
 Use `--yes` for noninteractive generation. Dependencies are not installed by
 default; pass `--install` to install them. The `d1` add-on adds a D1 binding and
 Drizzle, `r2` adds an R2 binding, `auth` adds ChatGPT authentication helpers,
-and `shadcn` adds shadcn/ui with a vetted set of common components.
+and `shadcn` adds shadcn/ui with its complete component set.
 
 The `shadcn` add-on uses the Base UI Nova preset with neutral colors, Geist,
-Lucide icons, and CSS variables. It includes alert, badge, button, card,
-checkbox, dialog, dropdown menu, input, label, select, separator, skeleton,
-switch, tabs, textarea, and tooltip. Add more components later with
+Lucide icons, and CSS variables. It includes all 61 entries available through
+`shadcn add --all`: 60 component source files plus the fileless `form`
+compatibility entry. Future registry components can be added with
 `npm run ui:add -- <component>`.
 
 ```bash

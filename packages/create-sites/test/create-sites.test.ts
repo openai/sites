@@ -224,31 +224,86 @@ describe('create-sites', () => {
 
     const shadcnDependencies = [
       '@base-ui/react',
+      '@shadcn/react',
       'class-variance-authority',
       'clsx',
+      'cmdk',
+      'date-fns',
+      'embla-carousel-react',
+      'input-otp',
       'lucide-react',
+      'react-day-picker',
+      'react-resizable-panels',
+      'recharts',
       'shadcn',
       'tailwind-merge',
       'tw-animate-css',
     ];
     const shadcnComponents = [
+      'accordion',
       'alert',
+      'alert-dialog',
+      'aspect-ratio',
+      'attachment',
+      'avatar',
       'badge',
+      'breadcrumb',
+      'bubble',
       'button',
+      'button-group',
+      'calendar',
       'card',
+      'carousel',
+      'chart',
       'checkbox',
+      'collapsible',
+      'combobox',
+      'command',
+      'context-menu',
       'dialog',
+      'direction',
+      'drawer',
       'dropdown-menu',
+      'empty',
+      'field',
+      'hover-card',
       'input',
+      'input-group',
+      'input-otp',
+      'item',
+      'kbd',
       'label',
+      'marker',
+      'menubar',
+      'message',
+      'message-scroller',
+      'native-select',
+      'navigation-menu',
+      'pagination',
+      'popover',
+      'progress',
+      'radio-group',
+      'resizable',
+      'scroll-area',
       'select',
       'separator',
+      'sheet',
+      'sidebar',
       'skeleton',
+      'slider',
+      'spinner',
       'switch',
+      'table',
       'tabs',
       'textarea',
+      'toast',
+      'toggle',
+      'toggle-group',
       'tooltip',
     ];
+    // The complete shadcn registry has 61 entries. `form` is a compatibility
+    // entry without a source file, leaving 60 files in components/ui.
+    expect(shadcnComponents).toHaveLength(60);
     const globals = await readFile(join(project, 'app', 'globals.css'), 'utf8');
 
     if (scenario.hasShadcn) {
@@ -264,11 +319,21 @@ describe('create-sites', () => {
       await expect(
         access(join(project, 'lib', 'utils.ts')),
       ).resolves.toBeUndefined();
+      await expect(
+        access(join(project, 'hooks', 'use-mobile.ts')),
+      ).resolves.toBeUndefined();
       for (const component of shadcnComponents) {
         await expect(
           access(join(project, 'components', 'ui', `${component}.tsx`)),
         ).resolves.toBeUndefined();
       }
+      const generatedComponents = (
+        await readdir(join(project, 'components', 'ui'))
+      )
+        .filter((file) => file.endsWith('.tsx'))
+        .map((file) => file.slice(0, -'.tsx'.length))
+        .sort();
+      expect(generatedComponents).toEqual([...shadcnComponents].sort());
       expect(globals).toContain("@import 'shadcn/tailwind.css'");
       expect(globals).toContain('--color-primary: var(--primary)');
     } else {
@@ -484,8 +549,7 @@ describe('create-sites', () => {
           { name: 'auth', description: 'Add ChatGPT authentication helpers.' },
           {
             name: 'shadcn',
-            description:
-              'Add shadcn/ui with a vetted set of common components.',
+            description: 'Add shadcn/ui with its complete component set.',
           },
         ]);
       } else {

@@ -2,4 +2,4 @@
 '@openai/create-sites': minor
 ---
 
-Add a shadcn/ui add-on with a vetted set of common components.
+Add a shadcn/ui add-on with the complete component set.

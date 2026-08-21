@@ -23,7 +23,7 @@ const addOns: { name: AddOn; description: string }[] = [
   { name: 'auth', description: 'Add ChatGPT authentication helpers.' },
   {
     name: 'shadcn',
-    description: 'Add shadcn/ui with a vetted set of common components.',
+    description: 'Add shadcn/ui with its complete component set.',
   },
 ];
 const packageManagers: PackageManager[] = ['npm', 'pnpm', 'yarn', 'bun'];
@@ -179,9 +179,17 @@ async function createSite(
     manifest.dependencies = {
       ...manifest.dependencies,
       '@base-ui/react': '1.7.0',
+      '@shadcn/react': '0.3.0',
       'class-variance-authority': '0.7.1',
       clsx: '2.1.1',
+      cmdk: '1.1.1',
+      'date-fns': '4.1.0',
+      'embla-carousel-react': '8.5.2',
+      'input-otp': '1.4.2',
       'lucide-react': '1.31.0',
+      'react-day-picker': '9.8.1',
+      'react-resizable-panels': '4.5.8',
+      recharts: '3.8.0',
       shadcn: '4.18.0',
       'tailwind-merge': '3.6.0',
       'tw-animate-css': '1.4.0',
