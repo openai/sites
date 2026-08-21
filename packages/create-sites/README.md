@@ -18,8 +18,7 @@ and `shadcn` adds shadcn/ui with its complete component set.
 The `shadcn` add-on uses the Base UI Nova preset with neutral colors, Geist,
 Lucide icons, and CSS variables. It includes all 61 entries available through
 `shadcn add --all`: 60 component source files plus the fileless `form`
-compatibility entry. Future registry components can be added with
-`npm run ui:add -- <component>`.
+compatibility entry.
 
 ```bash
 npx --yes @openai/create-sites@latest . \

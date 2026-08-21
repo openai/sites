@@ -194,10 +194,6 @@ async function createSite(
       'tailwind-merge': '3.6.0',
       'tw-animate-css': '1.4.0',
     };
-    manifest.scripts = {
-      ...manifest.scripts,
-      'ui:add': 'shadcn add',
-    };
   }
 
   await mkdir(destination, { recursive: true });

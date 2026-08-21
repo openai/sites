@@ -312,7 +312,7 @@ describe('create-sites', () => {
           expect.any(String),
         );
       }
-      expect(projectPackage.scripts?.['ui:add']).toBe('shadcn add');
+      expect(projectPackage.scripts?.['ui:add']).toBeUndefined();
       await expect(
         access(join(project, 'components.json')),
       ).resolves.toBeUndefined();
