@@ -66,6 +66,7 @@ describe('create-sites', () => {
       hosting: { d1: null, r2: null },
       hasDatabase: false,
       hasAuthentication: false,
+      hasShadcn: false,
     },
     {
       name: 'a D1 project',
@@ -73,6 +74,7 @@ describe('create-sites', () => {
       hosting: { d1: 'DB', r2: null },
       hasDatabase: true,
       hasAuthentication: false,
+      hasShadcn: false,
     },
     {
       name: 'an R2 project',
@@ -80,6 +82,7 @@ describe('create-sites', () => {
       hosting: { d1: null, r2: 'FILES' },
       hasDatabase: false,
       hasAuthentication: false,
+      hasShadcn: false,
     },
     {
       name: 'a project with D1 and R2',
@@ -87,6 +90,7 @@ describe('create-sites', () => {
       hosting: { d1: 'DB', r2: 'FILES' },
       hasDatabase: true,
       hasAuthentication: false,
+      hasShadcn: false,
     },
     {
       name: 'an authentication project',
@@ -94,13 +98,23 @@ describe('create-sites', () => {
       hosting: { d1: null, r2: null },
       hasDatabase: false,
       hasAuthentication: true,
+      hasShadcn: false,
     },
     {
-      name: 'a project with D1, R2, and authentication',
-      addOns: 'd1,r2,auth',
+      name: 'a shadcn project',
+      addOns: 'shadcn',
+      hosting: { d1: null, r2: null },
+      hasDatabase: false,
+      hasAuthentication: false,
+      hasShadcn: true,
+    },
+    {
+      name: 'a project with every add-on',
+      addOns: 'd1,r2,auth,shadcn',
       hosting: { d1: 'DB', r2: 'FILES' },
       hasDatabase: true,
       hasAuthentication: true,
+      hasShadcn: true,
     },
   ])('creates $name without installing dependencies', async (scenario) => {
     const workspace = await createWorkspace();
@@ -207,6 +221,134 @@ describe('create-sites', () => {
         access(join(project, 'drizzle.config.ts')),
       ).rejects.toMatchObject({ code: 'ENOENT' });
     }
+
+    const shadcnDependencies = [
+      '@base-ui/react',
+      '@shadcn/react',
+      'class-variance-authority',
+      'clsx',
+      'cmdk',
+      'date-fns',
+      'embla-carousel-react',
+      'input-otp',
+      'lucide-react',
+      'react-day-picker',
+      'react-resizable-panels',
+      'recharts',
+      'shadcn',
+      'tailwind-merge',
+      'tw-animate-css',
+    ];
+    const shadcnComponents = [
+      'accordion',
+      'alert',
+      'alert-dialog',
+      'aspect-ratio',
+      'attachment',
+      'avatar',
+      'badge',
+      'breadcrumb',
+      'bubble',
+      'button',
+      'button-group',
+      'calendar',
+      'card',
+      'carousel',
+      'chart',
+      'checkbox',
+      'collapsible',
+      'combobox',
+      'command',
+      'context-menu',
+      'dialog',
+      'direction',
+      'drawer',
+      'dropdown-menu',
+      'empty',
+      'field',
+      'hover-card',
+      'input',
+      'input-group',
+      'input-otp',
+      'item',
+      'kbd',
+      'label',
+      'marker',
+      'menubar',
+      'message',
+      'message-scroller',
+      'native-select',
+      'navigation-menu',
+      'pagination',
+      'popover',
+      'progress',
+      'radio-group',
+      'resizable',
+      'scroll-area',
+      'select',
+      'separator',
+      'sheet',
+      'sidebar',
+      'skeleton',
+      'slider',
+      'spinner',
+      'switch',
+      'table',
+      'tabs',
+      'textarea',
+      'toast',
+      'toggle',
+      'toggle-group',
+      'tooltip',
+    ];
+    // The complete shadcn registry has 61 entries. `form` is a compatibility
+    // entry without a source file, leaving 60 files in components/ui.
+    expect(shadcnComponents).toHaveLength(60);
+    const globals = await readFile(join(project, 'app', 'globals.css'), 'utf8');
+
+    if (scenario.hasShadcn) {
+      for (const dependency of shadcnDependencies) {
+        expect(projectPackage.dependencies?.[dependency]).toEqual(
+          expect.any(String),
+        );
+      }
+      expect(projectPackage.scripts?.['ui:add']).toBeUndefined();
+      await expect(
+        access(join(project, 'components.json')),
+      ).resolves.toBeUndefined();
+      await expect(
+        access(join(project, 'lib', 'utils.ts')),
+      ).resolves.toBeUndefined();
+      await expect(
+        access(join(project, 'hooks', 'use-mobile.ts')),
+      ).resolves.toBeUndefined();
+      for (const component of shadcnComponents) {
+        await expect(
+          access(join(project, 'components', 'ui', `${component}.tsx`)),
+        ).resolves.toBeUndefined();
+      }
+      const generatedComponents = (
+        await readdir(join(project, 'components', 'ui'))
+      )
+        .filter((file) => file.endsWith('.tsx'))
+        .map((file) => file.slice(0, -'.tsx'.length))
+        .sort();
+      expect(generatedComponents).toEqual([...shadcnComponents].sort());
+      expect(globals).toContain("@import 'shadcn/tailwind.css'");
+      expect(globals).toContain('--color-primary: var(--primary)');
+    } else {
+      for (const dependency of shadcnDependencies) {
+        expect(projectPackage.dependencies?.[dependency]).toBeUndefined();
+      }
+      expect(projectPackage.scripts?.['ui:add']).toBeUndefined();
+      await expect(
+        access(join(project, 'components.json')),
+      ).rejects.toMatchObject({ code: 'ENOENT' });
+      await expect(access(join(project, 'components'))).rejects.toMatchObject({
+        code: 'ENOENT',
+      });
+      expect(globals).not.toContain('shadcn/tailwind.css');
+    }
   });
 
   test('creates a minimal starter without bundled previews or tests', async () => {
@@ -277,13 +419,13 @@ describe('create-sites', () => {
       'example-site',
       '--yes',
       '--add-ons',
-      'd1,r2,auth',
+      'd1,r2,auth,shadcn',
     ]);
     const second = runCli(secondWorkspace, [
       'example-site',
       '--yes',
       '--add-ons',
-      'auth,r2,d1',
+      'shadcn,auth,r2,d1',
     ]);
 
     expect(first.status, first.stderr).toBe(0);
@@ -297,6 +439,11 @@ describe('create-sites', () => {
       'db/schema.ts',
       'drizzle.config.ts',
       'app/chatgpt-auth.ts',
+      'components.json',
+      'app/globals.css',
+      'lib/utils.ts',
+      'components/ui/button.tsx',
+      'components/ui/dialog.tsx',
     ]) {
       expect(
         await readFile(join(firstWorkspace, 'example-site', relativePath)),
@@ -400,11 +547,16 @@ describe('create-sites', () => {
             description: 'Add a Cloudflare R2 object storage binding.',
           },
           { name: 'auth', description: 'Add ChatGPT authentication helpers.' },
+          {
+            name: 'shadcn',
+            description: 'Add shadcn/ui with its complete component set.',
+          },
         ]);
       } else {
         expect(result.stdout).toContain('d1');
         expect(result.stdout).toContain('r2');
         expect(result.stdout).toContain('auth');
+        expect(result.stdout).toContain('shadcn');
       }
       expect(await readdir(workspace)).toEqual([]);
     },
