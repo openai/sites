@@ -1,5 +1,11 @@
 # @openai/create-sites
 
+## 0.3.0
+
+### Minor Changes
+
+- a3af602: Add a shadcn/ui add-on with the complete component set.
+
 ## 0.2.2
 
 ### Patch Changes
