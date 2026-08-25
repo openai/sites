@@ -15,6 +15,7 @@ import { Command, InvalidArgumentError, Option } from 'commander';
 import { xSync } from 'tinyexec';
 
 type AddOn = 'd1' | 'r2' | 'auth' | 'shadcn';
+type Integration = 'codex' | 'chatgpt-work';
 type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun';
 
 const addOns: { name: AddOn; description: string }[] = [
@@ -26,6 +27,7 @@ const addOns: { name: AddOn; description: string }[] = [
     description: 'Add shadcn/ui with its complete component set.',
   },
 ];
+const integrations: Integration[] = ['codex', 'chatgpt-work'];
 const packageManagers: PackageManager[] = ['npm', 'pnpm', 'yarn', 'bun'];
 const allowedExistingEntries = new Set(['.git', '.DS_Store']);
 
@@ -38,12 +40,57 @@ type PackageJson = {
 
 type CliOptions = {
   addOns?: AddOn[];
+  integration: Integration;
   yes?: boolean;
   install: boolean;
   packageManager?: PackageManager;
   listAddOns?: boolean;
   json?: boolean;
 };
+
+function replaceRequired(
+  contents: string,
+  search: string,
+  replacement: string,
+  description: string,
+): string {
+  if (!contents.includes(search)) {
+    throw new Error(`Could not apply ${description}.`);
+  }
+  return contents.replace(search, replacement);
+}
+
+async function applyChatGPTWorkIntegration(
+  templates: string,
+  destination: string,
+  selected: AddOn[],
+): Promise<void> {
+  const viteConfigPath = join(destination, 'vite.config.ts');
+  const viteConfig = replaceRequired(
+    await readFile(viteConfigPath, 'utf8'),
+    `    server: isCodexSeatbeltSandbox
+      ? { watch: { useFsEvents: false, usePolling: true } }
+      : undefined,`,
+    `    // ChatGPT Work routes project previews through terminal.local.
+    server: {
+      host: '0.0.0.0',
+      allowedHosts: ['terminal.local'],
+      ...(isCodexSeatbeltSandbox
+        ? { watch: { useFsEvents: false, usePolling: true } }
+        : {}),
+    },`,
+    'the ChatGPT Work Vite server configuration',
+  );
+  await writeFile(viteConfigPath, viteConfig, 'utf8');
+
+  if (selected.includes('auth')) {
+    await cp(
+      join(templates, 'integrations', 'chatgpt-work', 'addons', 'auth'),
+      destination,
+      { recursive: true, force: true },
+    );
+  }
+}
 
 function parseAddOns(value: string | undefined): AddOn[] {
   if (!value?.trim()) return [];
@@ -212,6 +259,10 @@ async function createSite(
     });
   }
 
+  if (options.integration === 'chatgpt-work') {
+    await applyChatGPTWorkIntegration(templates, destination, selected);
+  }
+
   await Promise.all([
     writeJson(join(destination, 'package.json'), manifest),
     writeJson(join(destination, '.openai', 'hosting.json'), hosting),
@@ -232,6 +283,7 @@ async function createSite(
   process.stdout.write(
     `Add-ons: ${selected.length ? selected.join(', ') : 'none'}.\n`,
   );
+  process.stdout.write(`Integration: ${options.integration}.\n`);
 
   if (!options.install) {
     process.stdout.write('\nNext steps:\n');
@@ -258,6 +310,11 @@ async function main(): Promise<void> {
     .version(manifest.version, '-v, --version', 'Show the package version')
     .argument('[directory]', 'Project directory')
     .option('--add-ons <list>', 'Comma-separated add-ons', parseAddOns)
+    .addOption(
+      new Option('--integration <name>', 'Host integration')
+        .choices(integrations)
+        .default('codex'),
+    )
     .option('-y, --yes', 'Use defaults without prompting')
     .option('--install', 'Install project dependencies', false)
     .option('--no-install', 'Generate without installing dependencies')

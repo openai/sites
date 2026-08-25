@@ -53,6 +53,8 @@ export default defineConfig(async () => {
       vinext(),
       sites(),
       cloudflare({
+        // Sites preview workflows do not attach to the Workers debugger.
+        inspectorPort: false,
         viteEnvironment: { name: 'rsc', childEnvironments: ['ssr'] },
         config: localBindingConfig,
       }),

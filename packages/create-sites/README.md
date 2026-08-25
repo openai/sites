@@ -7,6 +7,9 @@ npm create @openai/sites@latest my-site
 
 npm create @openai/sites@latest my-site -- --yes --add-ons d1,r2,shadcn
 
+npm create @openai/sites@latest my-site -- \
+  --yes --integration chatgpt-work --add-ons d1,r2,auth,shadcn
+
 pnpm create @openai/sites@latest my-site --yes --add-ons d1,r2,shadcn
 ```
 
@@ -19,6 +22,20 @@ The `shadcn` add-on uses the Base UI Nova preset with neutral colors, Geist,
 Lucide icons, and CSS variables. It includes all 61 entries available through
 `shadcn add --all`: 60 component source files plus the fileless `form`
 compatibility entry.
+
+The default integration is `codex`. Use `--integration chatgpt-work` when the
+project will instead be authored through ChatGPT Work. The Work integration
+configures the generated Vite server for the `terminal.local` preview gateway.
+When combined with the `auth` add-on, it generates the email-based
+authenticated-user contract provided by ChatGPT Work instead of requiring a
+per-Site user ID.
+
+All starters ignore the project-local `.sites-runtime` directory and disable
+the standalone Cloudflare inspector because neither Codex nor ChatGPT Work
+preview attaches to the Workers debugger.
+
+Host integrations do not select add-ons, install packages, or change the
+generated dependency graph. Omitting `--integration` selects `codex`.
 
 ```bash
 npx --yes @openai/create-sites@latest . \

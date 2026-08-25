@@ -453,6 +453,94 @@ describe('create-sites', () => {
     }
   });
 
+  test('applies the ChatGPT Work integration without changing the dependency graph', async () => {
+    const codexWorkspace = await createWorkspace();
+    const workWorkspace = await createWorkspace();
+    const addOns = 'd1,r2,auth,shadcn';
+
+    const codex = runCli(codexWorkspace, [
+      'example-site',
+      '--yes',
+      '--add-ons',
+      addOns,
+    ]);
+    const work = runCli(workWorkspace, [
+      'example-site',
+      '--yes',
+      '--integration',
+      'chatgpt-work',
+      '--add-ons',
+      addOns,
+    ]);
+
+    expect(codex.status, codex.stderr).toBe(0);
+    expect(work.status, work.stderr).toBe(0);
+    expect(codex.stdout).toContain('Integration: codex.');
+    expect(work.stdout).toContain('Integration: chatgpt-work.');
+
+    const codexProject = join(codexWorkspace, 'example-site');
+    const workProject = join(workWorkspace, 'example-site');
+    expect(await readPackage(workProject)).toEqual(
+      await readPackage(codexProject),
+    );
+
+    const codexGitignore = await readFile(
+      join(codexProject, '.gitignore'),
+      'utf8',
+    );
+    const workGitignore = await readFile(
+      join(workProject, '.gitignore'),
+      'utf8',
+    );
+    expect(workGitignore).toBe(codexGitignore);
+    expect(codexGitignore).toContain('/.sites-runtime/');
+    expect(codexGitignore).toContain('/.vinext/');
+
+    const codexViteConfig = await readFile(
+      join(codexProject, 'vite.config.ts'),
+      'utf8',
+    );
+    const workViteConfig = await readFile(
+      join(workProject, 'vite.config.ts'),
+      'utf8',
+    );
+    expect(codexViteConfig).not.toContain("host: '0.0.0.0'");
+    expect(codexViteConfig).not.toContain("allowedHosts: ['terminal.local']");
+    expect(codexViteConfig).toContain('inspectorPort: false');
+    expect(workViteConfig).toContain("host: '0.0.0.0'");
+    expect(workViteConfig).toContain("allowedHosts: ['terminal.local']");
+    expect(workViteConfig).toContain('inspectorPort: false');
+
+    const codexAuth = await readFile(
+      join(codexProject, 'app', 'chatgpt-auth.ts'),
+      'utf8',
+    );
+    const workAuth = await readFile(
+      join(workProject, 'app', 'chatgpt-auth.ts'),
+      'utf8',
+    );
+    expect(codexAuth).toContain('oai-authenticated-user-id');
+    expect(codexAuth).toContain('userId: string');
+    expect(workAuth).not.toContain('oai-authenticated-user-id');
+    expect(workAuth).not.toContain('userId: string');
+    expect(workAuth).toContain('oai-authenticated-user-email');
+  });
+
+  test('does not select auth through the ChatGPT Work integration', async () => {
+    const workspace = await createWorkspace();
+    const result = runCli(workspace, [
+      'example-site',
+      '--yes',
+      '--integration',
+      'chatgpt-work',
+    ]);
+
+    expect(result.status, result.stderr).toBe(0);
+    await expect(
+      access(join(workspace, 'example-site', 'app', 'chatgpt-auth.ts')),
+    ).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   test.each(['npm', 'pnpm', 'yarn', 'bun'])(
     'supports selecting %s explicitly',
     async (manager) => {
@@ -518,6 +606,10 @@ describe('create-sites', () => {
     expect(result.stdout).toContain('Usage: create-sites');
     expect(result.stdout).toContain('--add-ons');
     expect(result.stdout).toContain('Comma-separated add-ons');
+    expect(result.stdout).toContain('--integration');
+    expect(result.stdout).toContain('Host integration');
+    expect(result.stdout).toContain('codex');
+    expect(result.stdout).toContain('chatgpt-work');
     expect(result.stdout).not.toContain('d1,r2,auth');
     expect(result.stdout).toContain('--yes');
     expect(result.stdout).toContain('--package-manager');
@@ -570,6 +662,10 @@ describe('create-sites', () => {
     {
       name: 'an unsupported package manager',
       args: ['example-site', '--yes', '--package-manager', 'unsupported'],
+    },
+    {
+      name: 'an unsupported host integration',
+      args: ['example-site', '--yes', '--integration', 'unsupported'],
     },
     {
       name: 'JSON output without an add-on list',
