@@ -22,7 +22,7 @@
     "oxlint": "1.76.0",
     "oxlint-tsgolint": "7.0.2001",
     "typescript": "5.9.3",
-    "vitest": "4.1.7"
+    "vitest": "4.1.11"
   },
   "engines": {
     "node": ">=22.13.0"
