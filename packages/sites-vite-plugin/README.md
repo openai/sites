@@ -17,9 +17,11 @@ deployment artifact:
 - Required: `.openai/hosting.json` to `dist/.openai/hosting.json`
 - Optional: `drizzle/**` to `dist/.openai/drizzle/**`
 
-The build fails when `.openai/hosting.json` is missing. The generated
-`dist/.openai` directory is replaced on every build. V1 assumes Vite's default
-`dist` output directory and does not expose configuration.
+The build fails when `.openai/hosting.json` is missing. The generated `.openai`
+directory is replaced on every build. These paths use Vite's default `dist`
+output directory; when `build.outDir` is configured, metadata is placed under
+that directory instead. Relative output directories are resolved against the
+Vite project root, and absolute output directories are supported.
 
 ## Local sign-in
 
