@@ -29,12 +29,14 @@ async function exists(path: string): Promise<boolean> {
 
 export function sites(): Plugin {
   let root = process.cwd();
+  let outDir = 'dist';
   let command: 'build' | 'serve' = 'build';
 
   return {
     name: 'sites',
     configResolved(config) {
       root = config.root;
+      outDir = config.build.outDir;
       command = config.command;
     },
     configureServer(server) {
@@ -168,7 +170,7 @@ export function sites(): Plugin {
     async closeBundle() {
       if (command !== 'build') return;
 
-      const outputDirectory = resolve(root, 'dist', '.openai');
+      const outputDirectory = resolve(root, outDir, '.openai');
       const hostingConfig = resolve(root, '.openai', 'hosting.json');
       const drizzleSource = resolve(root, 'drizzle');
 

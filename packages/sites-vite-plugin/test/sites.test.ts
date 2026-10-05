@@ -272,6 +272,55 @@ describe('sites', () => {
     ).resolves.toBe('{}\n');
   });
 
+  test.each(['relative', 'nested', 'absolute'])(
+    'packages metadata in the configured %s output directory',
+    async (kind) => {
+      const root = await createProject();
+      const outDir =
+        kind === 'absolute'
+          ? join(root, 'absolute-output')
+          : kind === 'nested'
+            ? 'build/client'
+            : 'build';
+      const output = join(
+        root,
+        kind === 'absolute' ? 'absolute-output' : outDir,
+      );
+      await mkdir(join(root, '.openai'));
+      await writeFile(join(root, '.openai', 'hosting.json'), '{"d1":"DB"}\n');
+      await mkdir(join(root, 'drizzle'));
+      await writeFile(join(root, 'drizzle', '0000.sql'), 'SELECT 1;\n');
+      await mkdir(join(root, 'dist', '.openai'), { recursive: true });
+      await writeFile(join(root, 'dist', '.openai', 'unrelated.txt'), 'keep');
+
+      await build({ root, configFile, logLevel: 'silent', build: { outDir } });
+
+      await expect(
+        readFile(join(output, '.openai', 'hosting.json'), 'utf8'),
+      ).resolves.toBe('{"d1":"DB"}\n');
+      await expect(
+        readFile(join(output, '.openai', 'drizzle', '0000.sql'), 'utf8'),
+      ).resolves.toBe('SELECT 1;\n');
+      await expect(
+        readFile(join(output, 'index.html'), 'utf8'),
+      ).resolves.toContain('Sites');
+      await expect(
+        readFile(join(root, 'dist', '.openai', 'unrelated.txt'), 'utf8'),
+      ).resolves.toBe('keep');
+
+      await rm(join(root, 'drizzle'), { recursive: true });
+      await build({
+        root,
+        configFile,
+        logLevel: 'silent',
+        build: { outDir, emptyOutDir: false },
+      });
+      await expect(readdir(join(output, '.openai'))).resolves.toEqual([
+        'hosting.json',
+      ]);
+    },
+  );
+
   test('removes stale Drizzle sidecars when migrations disappear', async () => {
     const root = await createProject();
     await mkdir(join(root, '.openai'));
